@@ -1,0 +1,83 @@
+error: LexerError: Number of fields not in known format
+           At `Day Of Week` field and position 11
+ --> ui/cron_errors.rs:8:11
+  |
+8 |     cron!("* * * * * * *");
+  |           ^^^^^^^^^^^^^^^
+
+error: LexerError: Number `60` exceeds expected range (of 0 - 59)
+           At `Seconds` field and position 1
+  --> ui/cron_errors.rs:11:11
+   |
+11 |     cron!("60 * * * * *");
+   |           ^^^^^^^^^^^^^^
+
+error: LexerError: Number `13` exceeds expected range (of 1 - 12)
+           At `Month` field and position 9
+  --> ui/cron_errors.rs:14:11
+   |
+14 |     cron!("* * * * 13 *");
+   |           ^^^^^^^^^^^^^^
+
+error: LexerError: Number `32` exceeds expected range (of 1 - 31)
+           At `Day Of Month` field and position 7
+  --> ui/cron_errors.rs:17:11
+   |
+17 |     cron!("* * * 32 * *");
+   |           ^^^^^^^^^^^^^^
+
+error: LexerError: Number `8` exceeds expected range (of 1 - 7)
+           At `Day Of Week` field and position 10
+  --> ui/cron_errors.rs:20:11
+   |
+20 |     cron!("* * * * * 8");
+   |           ^^^^^^^^^^^^^
+
+error: LexerError: Number `24` exceeds expected range (of 0 - 23)
+           At `Hours` field and position 5
+  --> ui/cron_errors.rs:23:11
+   |
+23 |     cron!("* * 24 * * *");
+   |           ^^^^^^^^^^^^^^
+
+error: LexerError: Unknown character
+           At `Day Of Week` field and position 12
+  --> ui/cron_errors.rs:26:11
+   |
+26 |     cron!("* * * * * BLA");
+   |           ^^^^^^^^^^^^^^^
+
+error: LexerError: Unknown character
+           At `Month` field and position 11
+  --> ui/cron_errors.rs:29:11
+   |
+29 |     cron!("* * * * BLU *");
+   |           ^^^^^^^^^^^^^^^
+
+error: LexerError: Undefined range, minimum bound is higher than maximum bound (10 >= 5)
+           At `Seconds` field and position 1
+  --> ui/cron_errors.rs:35:11
+   |
+35 |     cron!("10-5 * * * * *");
+   |           ^^^^^^^^^^^^^^^^
+
+error: LexerError: Unknown character
+           At `Seconds` field and position 0
+  --> ui/cron_errors.rs:38:11
+   |
+38 |     cron!("& * * * * *");
+   |           ^^^^^^^^^^^^^
+
+error: ParserError: Expected one or more tokens, found an abrupt end
+           At `Seconds` field and position 1
+  --> ui/cron_errors.rs:41:11
+   |
+41 |     cron!("*/ * * * * *");
+   |           ^^^^^^^^^^^^^^
+
+error: ParserError: Expected one or more tokens, found an abrupt end
+           At `Seconds` field and position 1
+  --> ui/cron_errors.rs:44:11
+   |
+44 |     cron!("1- * * * * *");
+   |           ^^^^^^^^^^^^^^

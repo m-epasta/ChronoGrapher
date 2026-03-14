@@ -6,7 +6,7 @@ pub use chronographer_macros::*;
 pub mod prelude {
     #[cfg(feature = "macros")]
     // Macros
-    pub use chronographer_macros::every;
+    pub use chronographer_macros::{every, cron};
 
     // Core
     pub use crate::errors::TaskError;

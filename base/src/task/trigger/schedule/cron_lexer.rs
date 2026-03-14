@@ -26,25 +26,25 @@ fn constant_to_numeric(
     tokens: &mut Vec<Token>,
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
     let num: u8 = match &char_buffer[0..=2] {
-        "SUN" | "sun" if field_pos == 3 => 1,
-        "MON" | "mon" if field_pos == 3 => 2,
-        "TUE" | "tue" if field_pos == 3 => 3,
-        "WED" | "wed" if field_pos == 3 => 4,
-        "THU" | "thu" if field_pos == 3 => 5,
-        "FRI" | "fri" if field_pos == 3 => 6,
-        "SAT" | "sat" if field_pos == 3 => 7,
-        "JAN" | "jan" if field_pos == 5 => 1,
-        "FEB" | "feb" if field_pos == 5 => 2,
-        "MAR" | "mar" if field_pos == 5 => 3,
-        "APR" | "apr" if field_pos == 5 => 4,
-        "MAY" | "may" if field_pos == 5 => 5,
-        "JUN" | "jun" if field_pos == 5 => 6,
-        "JUL" | "jul" if field_pos == 5 => 7,
-        "AUG" | "aug" if field_pos == 5 => 8,
-        "SEP" | "sep" if field_pos == 5 => 9,
-        "OCT" | "oct" if field_pos == 5 => 10,
-        "NOV" | "nov" if field_pos == 5 => 11,
-        "DEC" | "dec" if field_pos == 5 => 12,
+        "SUN" | "sun" if field_pos == 5 => 1,
+        "MON" | "mon" if field_pos == 5 => 2,
+        "TUE" | "tue" if field_pos == 5 => 3,
+        "WED" | "wed" if field_pos == 5 => 4,
+        "THU" | "thu" if field_pos == 5 => 5,
+        "FRI" | "fri" if field_pos == 5 => 6,
+        "SAT" | "sat" if field_pos == 5 => 7,
+        "JAN" | "jan" if field_pos == 4 => 1,
+        "FEB" | "feb" if field_pos == 4 => 2,
+        "MAR" | "mar" if field_pos == 4 => 3,
+        "APR" | "apr" if field_pos == 4 => 4,
+        "MAY" | "may" if field_pos == 4 => 5,
+        "JUN" | "jun" if field_pos == 4 => 6,
+        "JUL" | "jul" if field_pos == 4 => 7,
+        "AUG" | "aug" if field_pos == 4 => 8,
+        "SEP" | "sep" if field_pos == 4 => 9,
+        "OCT" | "oct" if field_pos == 4 => 10,
+        "NOV" | "nov" if field_pos == 4 => 11,
+        "DEC" | "dec" if field_pos == 4 => 12,
         _ => {
             return Err((
                 CronExpressionLexerErrors::UnknownCharacter,
@@ -55,7 +55,7 @@ fn constant_to_numeric(
     };
 
     tokens.push(Token {
-        start: position - 3,
+        start: position - 2,
         token_type: TokenType::Value(num),
     });
     char_buffer.clear();
@@ -124,19 +124,6 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
             continue;
         }
 
-        if char.is_alphabetic() || !char_buffer.is_empty() {
-            char_buffer.push(char);
-            if char_buffer.len() == 3 {
-                constant_to_numeric(
-                    &mut char_buffer,
-                    field_pos,
-                    position,
-                    &mut tokens[field_pos],
-                )?;
-                continue;
-            }
-        }
-
         if char.is_ascii_digit() {
             digit_start = Some(position);
             current_number = current_number * 10 + (char as u8 - b'0');
@@ -155,14 +142,22 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
             ',' => TokenType::ListSeparator,
             '?' => TokenType::Unspecified,
             '/' => TokenType::Step,
-            'L' => {
-                char_buffer.clear();
-                TokenType::Last
-            }
+            'L' => TokenType::Last,
             '#' => TokenType::NthWeekday,
             'W' if !matches!(chars.peek(), Some((_, 'E' | 'e'))) => {
-                char_buffer.clear();
                 TokenType::NearestWeekday
+            }
+            _ if char.is_alphabetic() || !char_buffer.is_empty() => {
+                char_buffer.push(char);
+                if char_buffer.len() == 3 {
+                    constant_to_numeric(
+                        &mut char_buffer,
+                        field_pos,
+                        position,
+                        &mut tokens[field_pos],
+                    )?;
+                }
+                continue;
             }
             _ => {
                 return Err((
@@ -172,6 +167,8 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
                 ));
             }
         };
+
+        char_buffer.clear();
 
         tokens[field_pos].push(Token {
             start: position,
