@@ -86,7 +86,7 @@ use std::time::SystemTime;
 /// - [SchedulerTaskStore](crate::scheduler::task_store::SchedulerTaskStore) - Manages linking identifiers to tasks.
 /// - [`Task`](crate::task::Task) - The object which the task identifier associates.
 pub trait TaskIdentifier:
-'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
+    'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
 {
     fn generate() -> Self;
     fn as_usize(&self) -> usize {
@@ -126,12 +126,11 @@ impl TaskIdentifier for SnowflakeID {
             let last_timestamp = current >> 16;
             let last_sequence = current & 0xFFFF;
 
-            let now = (
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64
-            ) - Self::CHRONOGRAPHER_EPOCH_MS;
+            let now = (SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64)
+                - Self::CHRONOGRAPHER_EPOCH_MS;
 
             let (timestamp, sequence) = if now == last_timestamp {
                 let next_seq = (last_sequence + 1) & 0xFFFF;
@@ -147,12 +146,8 @@ impl TaskIdentifier for SnowflakeID {
 
             let new_id = (timestamp << 16) | sequence;
 
-            if PREV_ID.compare_exchange(
-                    current,
-                    new_id,
-                    Ordering::SeqCst,
-                    Ordering::Relaxed,
-                )
+            if PREV_ID
+                .compare_exchange(current, new_id, Ordering::SeqCst, Ordering::Relaxed)
                 .is_ok()
             {
                 return SnowflakeID(new_id);
@@ -164,4 +159,3 @@ impl TaskIdentifier for SnowflakeID {
         self.0 as usize
     }
 }
-
