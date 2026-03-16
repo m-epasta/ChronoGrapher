@@ -29,8 +29,10 @@ pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
-use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
-use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
+use crate::scheduler::{SchedulerHandle, SchedulerHandleInstructions};
+use crate::task::{
+    ErasedTask, NonObserverTaskHook, TASKHOOK_REGISTRY, TaskHook, TaskHookContext, TaskHookEvent,
+};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -48,7 +50,9 @@ pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
 macro_rules! instruct_method {
     ($name: ident, $variant: ident) => {
         pub async fn $name(&self) {
-            let hook = self.get_hook::<(), SchedulerHandle>().expect("The SchedulerHandle isn't present when its supposed to be");
+            let hook = self
+                .get_hook::<(), SchedulerHandle>()
+                .expect("The SchedulerHandle isn't present when its supposed to be");
             hook.instruct(SchedulerHandleInstructions::$variant).await;
         }
     };
@@ -89,7 +93,7 @@ impl<'a> TaskFrameContext<'a> {
 impl<'a> RestrictTaskFrameContext<'a> {
     pub(crate) fn new(task: &'a ErasedTask<impl TaskError>) -> Self {
         Self {
-            instance_id: task.instance_id,
+            instance_id: task.instance_id(),
             depth: 0,
             frame: task.frame.as_ref().erased(),
         }
