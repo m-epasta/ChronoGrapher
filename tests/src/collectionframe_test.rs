@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::task::{
-    CollectionTaskFrame, GroupedTaskFramesQuitOnFailure, GroupedTaskFramesQuitOnSuccess,
-    GroupedTaskFramesSilent, ParallelExecStrategy, SelectFrameAccessor, SelectionExecStrategy,
-    SequentialExecStrategy, TaskFrame, TaskFrameContext, TaskScheduleImmediate,
+    CollectionTaskError, CollectionTaskFrame, ErasedTask, GroupedTaskFramesQuitOnFailure,
+    GroupedTaskFramesQuitOnSuccess, GroupedTaskFramesSilent, ParallelExecStrategy,
+    SelectFrameAccessor, SelectionExecStrategy, SequentialExecStrategy, TaskFrame,
+    TaskFrameContext, TaskScheduleImmediate,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -74,7 +75,7 @@ async fn sequential_quit_on_failure_returns_indexed_error() {
 
     let task = Task::new(TaskScheduleImmediate, frame);
     let err = task
-        .into_erased()
+        .as_erased()
         .run()
         .await
         .expect_err("sequential strategy should stop on failure");
@@ -97,10 +98,8 @@ async fn sequential_silent_runs_all_frames() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.into_erased()
-        .run()
-        .await
-        .expect("silent should suppress failures");
+    let erased: ErasedTask<CollectionTaskError> = task.as_erased();
+    erased.run().await.expect("silent should suppress failures");
 
     assert_eq!(counter.load(Ordering::SeqCst), 3);
 }
@@ -119,7 +118,8 @@ async fn parallel_quit_on_success_returns_early() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.into_erased()
+    let erased: ErasedTask<CollectionTaskError> = task.as_erased();
+    erased
         .run()
         .await
         .expect("parallel should return success once any frame succeeds");
@@ -137,10 +137,8 @@ async fn selection_exec_runs_selected_frame_only() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.into_erased()
-        .run()
-        .await
-        .expect("selection should succeed");
+    let erased: ErasedTask<CollectionTaskError> = task.as_erased();
+    erased.run().await.expect("selection should succeed");
 
     assert_eq!(counter.load(Ordering::SeqCst), 1);
 }
@@ -155,8 +153,8 @@ async fn selection_exec_out_of_bounds_returns_error() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    let err = task
-        .into_erased()
+    let erased: ErasedTask<CollectionTaskError> = task.as_erased();
+    let err = erased
         .run()
         .await
         .expect_err("selection should fail when index is out of bounds");

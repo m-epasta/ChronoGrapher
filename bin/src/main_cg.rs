@@ -80,14 +80,14 @@ pub async fn benchmark_chronographer() {
 }
  */
 
-use std::sync::atomic::Ordering;
-use std::time::Duration;
+use crate::COUNTER;
 use async_trait::async_trait;
-use tokio::task::yield_now;
 use chronographer::errors::TaskError;
 use chronographer::prelude::{DefaultSchedulerConfig, Scheduler, Task, TaskScheduleInterval};
 use chronographer::task::{TaskFrame, TaskFrameContext};
-use crate::COUNTER;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+use tokio::task::yield_now;
 
 struct MyTaskFrame;
 
@@ -118,10 +118,10 @@ pub async fn benchmark_chronographer() {
 
         let task = Task::new(
             TaskScheduleInterval::duration(Duration::from_millis(millis.round() as u64)),
-            MyTaskFrame
+            MyTaskFrame,
         );
 
-        let _ = scheduler.schedule(&task).await;
+        let _ = scheduler.schedule(task).await;
     }
 
     scheduler.start().await;
