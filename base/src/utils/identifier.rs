@@ -3,6 +3,9 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
+#[cfg(feature = "uuid")]
+use uuid::Uuid;
+
 /// [`TaskIdentifier`] trait used for defining unique identifiers. For example UUID, integers, strings,
 /// and generally any kind of identifier format the user can use which suits their needs.
 ///

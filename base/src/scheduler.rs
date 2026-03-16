@@ -12,11 +12,11 @@ use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskFrame, TaskTrigger};
 use crate::utils::{SnowflakeID, TaskIdentifier};
+use crossbeam::queue::SegQueue;
 use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::{Notify, RwLock};
 use tokio::task::JoinHandle;
@@ -26,7 +26,7 @@ pub(crate) use crate::scheduler::utils::*;
 
 pub enum SchedulerWork {
     Trigger,
-    Dispatch
+    Dispatch,
 }
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
@@ -51,7 +51,7 @@ impl<C: SchedulerConfig> SchedulerWorker<C> {
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 pub(crate) type ReschedulePayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
-    Option<<C as SchedulerConfig>::TaskError>
+    Option<<C as SchedulerConfig>::TaskError>,
 );
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
@@ -147,7 +147,7 @@ where
 #[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    dispatch_workers: &Vec<SchedulerWorker<C>>
+    dispatch_workers: &Vec<SchedulerWorker<C>>,
 ) {
     let idx = id.as_usize() & (dispatch_workers.len() - 1);
     dispatch_workers[idx].spawn_dispatch(id);
@@ -175,8 +175,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init()
         );
 
-        let reschedule_queue =
-            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
+        let reschedule_queue = Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
 
         for idx in 0..self.workers.len() {
             let workers = self.workers.clone();
@@ -189,8 +188,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
                 let mut pointing = idx;
                 for _ in 0..worker_len {
                     let mut should_continue = true;
-                    while let Some((id, work_type)) = workers[pointing].queue.pop()
-                        && should_continue {
+                    while let Some((id, work_type)) = workers[pointing].queue.pop() {
+                        if !should_continue {
+                            break;
+                        }
                         if let Some(task) = store_clone.get(&id) {
                             should_continue = pointing == idx;
                             match work_type {
@@ -199,11 +200,12 @@ impl<C: SchedulerConfig> Scheduler<C> {
                                     let now = engine_clone.clock().now();
 
                                     let time = match trigger.trigger(now).await {
-                                        Ok(time) => {
-                                            time
-                                        }
+                                        Ok(time) => time,
                                         Err(err) => {
-                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                            eprintln!(
+                                                "Computation error from TaskTrigger: {:?}",
+                                                err
+                                            );
                                             store_clone.remove(&id);
                                             continue;
                                         }
@@ -212,7 +214,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
                                     match engine_clone.schedule(&id, time).await {
                                         Ok(()) => {}
                                         Err(err) => {
-                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                            eprintln!(
+                                                "Schedule error from SchedulerEngine: {:?}",
+                                                err
+                                            );
                                             store_clone.remove(&id);
                                         }
                                     }
@@ -237,34 +242,19 @@ impl<C: SchedulerConfig> Scheduler<C> {
             });
         }
 
-        let reschedule_loop = tokio::spawn(
-            reschedule_logic::<C>(
-                &reschedule_queue,
-                &self.workers
-            )
-        );
+        let reschedule_loop = tokio::spawn(reschedule_logic::<C>(&reschedule_queue, &self.workers));
 
-        let main_loop = tokio::spawn(
-            main_loop_logic::<C>(
-                &engine_clone,
-                &self.workers
-            )
-        );
+        let main_loop = tokio::spawn(main_loop_logic::<C>(&engine_clone, &self.workers));
 
-        let scheduler_handle_instructions = tokio::spawn(
-            scheduler_handle_instructions_logic::<C>(
-                &self.instruction_queue,
-                &dispatcher_clone,
-                &store_clone,
-                &self.workers
-            ),
-        );
-
-        *self.process.write().await = Some((
-            scheduler_handle_instructions,
-            reschedule_loop,
-            main_loop
+        let scheduler_handle_instructions = tokio::spawn(scheduler_handle_instructions_logic::<C>(
+            &self.instruction_queue,
+            &dispatcher_clone,
+            &store_clone,
+            &self.workers,
         ));
+
+        *self.process.write().await =
+            Some((scheduler_handle_instructions, reschedule_loop, main_loop));
     }
 
     pub async fn abort(&self) {
@@ -284,11 +274,11 @@ impl<C: SchedulerConfig> Scheduler<C> {
         &self,
         task: Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
-        let erased = task.into_erased();
+        let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();
 
         append_scheduler_handler::<C>(&erased, id.clone(), self.instruction_queue.clone()).await;
-        
+
         self.store.store(&id, erased)?;
         assign_to_trigger_worker::<C>(id.clone(), self.workers.as_ref());
 
