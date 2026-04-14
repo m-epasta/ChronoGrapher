@@ -19,6 +19,7 @@ pub mod prelude {
     #[cfg(feature = "macros")]
     // Macros
     pub use chronographer_macros::every;
+    pub use chronographer_macros::cron;
 
     // Core
     pub use crate::errors::TaskError;
